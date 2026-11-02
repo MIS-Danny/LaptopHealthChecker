@@ -1,4 +1,4 @@
-# Laptop Health Checker - Dark Dashboard v2
+# Laptop Health Checker - Compact Dark Dashboard v2.1
 # Windows PowerShell 5.1 / Windows 10 and 11
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -15,9 +15,9 @@ $amber=[Drawing.Color]::FromArgb(251,191,36)
 $red=[Drawing.Color]::FromArgb(248,113,113)
 
 $form=New-Object Windows.Forms.Form
-$form.Text='Laptop Health Checker | v2'
-$form.Size=New-Object Drawing.Size(1050,760)
-$form.MinimumSize=New-Object Drawing.Size(880,680)
+$form.Text='Laptop Health Checker | v2.1 Compact'
+$form.Size=New-Object Drawing.Size(950,670)
+$form.MinimumSize=New-Object Drawing.Size(850,620)
 $form.StartPosition='CenterScreen'
 $form.BackColor=$bg
 $form.ForeColor=$fg
@@ -54,50 +54,47 @@ function New-Button {
  return $b
 }
 
-$brand=New-Label 'LAPTOP HEALTH CHECKER' 30 20 650 38 20 $true
-$subtitle=New-Label 'PORTABLE HARDWARE INSPECTION  /  WINDOWS 10 & 11' 32 59 770 24 9 $false $muted
-$version=New-Label 'V2  |  SECONDHAND BUYER EDITION' 765 32 245 25 9 $true $muted
+# Compact dashboard layout; all coordinates are client-area pixels.
+$brand=New-Label 'LAPTOP HEALTH CHECKER' 22 13 620 31 17 $true
+$subtitle=New-Label 'PORTABLE HARDWARE INSPECTION  /  WINDOWS 10 & 11' 23 45 650 18 8 $false $muted
+$version=New-Label 'V2.1  |  BUYER EDITION' 675 23 235 22 8 $true $muted
 $version.TextAlign='MiddleRight'
-$version.Anchor='Top,Right'
 
-$scoreCard=New-Card 30 100 470 155
-$scoreCard.Anchor='Top,Left'
-$scoreTitle=New-Label 'OVERALL INSPECTION SCORE' 22 15 360 23 10 $true $muted $scoreCard
-$score=New-Label '-- / 100' 19 41 310 73 37 $true $fg $scoreCard
-$scoreHint=New-Label 'Screening score - not a hardware warranty' 23 120 420 22 9 $false $muted $scoreCard
-$coverageCard=New-Card 515 100 505 155
-$coverageCard.Anchor='Top,Right'
-$coverageTitle=New-Label 'DIAGNOSTIC COVERAGE' 22 15 420 24 10 $true $muted $coverageCard
-$coverage=New-Label '--%' 20 45 200 63 30 $true $fg $coverageCard
-$verdict=New-Label 'READY TO INSPECT' 207 55 270 56 12 $true $muted $coverageCard
-$verdict.TextAlign='MiddleRight'
-$coverageHint=New-Label 'Unknown items are excluded from the score' 23 120 460 22 9 $false $muted $coverageCard
+$scoreCard=New-Card 22 75 280 100
+$scoreTitle=New-Label 'HEALTH SCORE' 14 10 245 20 9 $true $muted $scoreCard
+$score=New-Label '-- / 100' 14 33 252 51 28 $true $fg $scoreCard
 
-$progressLabel=New-Label 'INSPECTION PROGRESS' 31 271 300 22 9 $true $muted
+$coverageCard=New-Card 312 75 280 100
+$coverageTitle=New-Label 'DIAGNOSTIC COVERAGE' 14 10 245 20 9 $true $muted $coverageCard
+$coverage=New-Label '--%' 14 33 245 51 28 $true $fg $coverageCard
+
+$verdictCard=New-Card 602 75 308 100
+$verdictTitle=New-Label 'INSPECTION VERDICT' 14 10 270 20 9 $true $muted $verdictCard
+$verdict=New-Label 'READY TO INSPECT' 14 35 280 50 11 $true $muted $verdictCard
+$verdict.TextAlign='MiddleLeft'
+
+$progressLabel=New-Label 'INSPECTION PROGRESS' 22 187 300 18 8 $true $muted
 $progress=New-Object Windows.Forms.ProgressBar
-$progress.Location=New-Object Drawing.Point(30,299)
-$progress.Size=New-Object Drawing.Size(990,13)
+$progress.Location=New-Object Drawing.Point(22,210)
+$progress.Size=New-Object Drawing.Size(888,8)
 $progress.Style='Continuous';$progress.Maximum=100
-$progress.Anchor='Top,Left,Right'
 $form.Controls.Add($progress)
-$status=New-Label 'Ready. Choose Quick Test or Deep Test to begin.' 31 320 975 27 10 $false $muted
-$status.Anchor='Top,Left,Right'
+$status=New-Label 'Ready. Choose Quick Test or Deep Test to begin.' 22 225 885 22 9 $false $muted
 
-$quick=New-Button 'QUICK TEST' 30 364 220 $blue
-$deep=New-Button 'DEEP TEST' 263 364 220 $panelAlt
-$open=New-Button 'OPEN HTML REPORT' 496 364 245 $panelAlt
-$folder=New-Button 'REPORTS FOLDER' 754 364 266 $panelAlt
-$folder.Anchor='Top,Right'
+$quick=New-Button 'QUICK TEST' 22 258 184 $blue
+$deep=New-Button 'DEEP TEST' 216 258 184 $panelAlt
+$open=New-Button 'HTML REPORT' 410 258 184 $panelAlt
+$folder=New-Button 'REPORTS FOLDER' 604 258 184 $panelAlt
+foreach($button in @($quick,$deep,$open,$folder)){$button.Height=34;$button.Font=New-Object Drawing.Font('Segoe UI',9,[Drawing.FontStyle]::Bold)}
 $open.Enabled=$false
 
-$resultsTitle=New-Label 'HARDWARE RESULTS' 31 428 500 26 12 $true $fg
-$resultsSub=New-Label 'Select a row to read its complete details below.' 600 430 420 22 9 $false $muted
-$resultsSub.TextAlign='MiddleRight';$resultsSub.Anchor='Top,Right'
+$resultsTitle=New-Label 'HARDWARE RESULTS' 22 305 350 24 11 $true $fg
+$resultsSub=New-Label 'Select a row for full details' 585 308 320 18 8 $false $muted
+$resultsSub.TextAlign='MiddleRight'
 
 $grid=New-Object Windows.Forms.DataGridView
-$grid.Location=New-Object Drawing.Point(30,462)
-$grid.Size=New-Object Drawing.Size(990,170)
-$grid.Anchor='Top,Bottom,Left,Right'
+$grid.Location=New-Object Drawing.Point(22,334)
+$grid.Size=New-Object Drawing.Size(888,215)
 $grid.ReadOnly=$true
 $grid.AllowUserToAddRows=$false
 $grid.AllowUserToDeleteRows=$false
@@ -109,32 +106,61 @@ $grid.BackgroundColor=$panel
 $grid.BorderStyle='None'
 $grid.GridColor=[Drawing.Color]::FromArgb(47,63,86)
 $grid.EnableHeadersVisualStyles=$false
-$grid.ColumnHeadersHeight=36
-$grid.RowTemplate.Height=34
+$grid.ColumnHeadersHeight=29
+$grid.RowTemplate.Height=27
 $grid.SelectionMode='FullRowSelect'
 $grid.ColumnHeadersDefaultCellStyle.BackColor=$panelAlt
 $grid.ColumnHeadersDefaultCellStyle.ForeColor=$fg
-$grid.ColumnHeadersDefaultCellStyle.Font=New-Object Drawing.Font('Segoe UI',10,[Drawing.FontStyle]::Bold)
+$grid.ColumnHeadersDefaultCellStyle.Font=New-Object Drawing.Font('Segoe UI',9,[Drawing.FontStyle]::Bold)
 $grid.DefaultCellStyle.BackColor=$panel
 $grid.DefaultCellStyle.ForeColor=$fg
 $grid.DefaultCellStyle.SelectionBackColor=[Drawing.Color]::FromArgb(36,66,107)
 $grid.DefaultCellStyle.SelectionForeColor=$fg
-$grid.DefaultCellStyle.Padding=New-Object Windows.Forms.Padding(8,3,8,3)
+$grid.DefaultCellStyle.Font=New-Object Drawing.Font('Segoe UI',9)
+$grid.DefaultCellStyle.Padding=New-Object Windows.Forms.Padding(6,1,6,1)
 $grid.AlternatingRowsDefaultCellStyle.BackColor=$panelAlt
 [void]$grid.Columns.Add('Component','COMPONENT')
 [void]$grid.Columns.Add('Status','STATUS')
 [void]$grid.Columns.Add('Score','SCORE')
 [void]$grid.Columns.Add('Details','DETAILS')
-$grid.Columns[0].FillWeight=100
-$grid.Columns[1].FillWeight=64
-$grid.Columns[2].FillWeight=56
-$grid.Columns[3].FillWeight=255
+$grid.Columns[0].FillWeight=95
+$grid.Columns[1].FillWeight=58
+$grid.Columns[2].FillWeight=50
+$grid.Columns[3].FillWeight=270
 $form.Controls.Add($grid)
 
-$detail=New-Label 'Component details will appear here after a test.' 32 643 982 36 9 $false $muted
-$detail.Anchor='Bottom,Left,Right'
-$note=New-Label 'Inspection scores are estimates. Manually verify display, keyboard, hinges, ports, charging and battery runtime before purchase.' 31 688 984 33 9 $false $muted
-$note.Anchor='Bottom,Left,Right'
+$detail=New-Label 'Select a component to view complete diagnostic details.' 23 559 884 28 9 $false $muted
+$note=New-Label 'Screening estimates only. Verify screen, keyboard, hinges, ports, charging and real battery runtime.' 23 593 884 23 8 $false $muted
+
+# Reflow horizontal sizing and bottom section when resized or maximized.
+function Update-CompactLayout {
+ $w=$form.ClientSize.Width
+ $h=$form.ClientSize.Height
+ $usable=[math]::Max(790,$w-44)
+ $gap=10
+ $third=[int][math]::Floor(($usable-2*$gap)/3)
+ $scoreCard.Left=22;$scoreCard.Width=$third
+ $coverageCard.Left=22+$third+$gap;$coverageCard.Width=$third
+ $verdictCard.Left=22+2*($third+$gap);$verdictCard.Width=$usable-2*($third+$gap)
+ $verdict.Width=[math]::Max(170,$verdictCard.Width-28)
+ $version.Left=[math]::Max(650,$w-257)
+ $progress.Width=$usable
+ $status.Width=$usable
+ $buttonGap=10
+ $buttonWidth=[int][math]::Floor(($usable-3*$buttonGap)/4)
+ $buttons=@($quick,$deep,$open,$folder)
+ for($i=0;$i -lt $buttons.Count;$i++){
+  $buttons[$i].Left=22+$i*($buttonWidth+$buttonGap)
+  $buttons[$i].Width=if($i -eq 3){$usable-3*($buttonWidth+$buttonGap)}else{$buttonWidth}
+ }
+ $resultsSub.Left=[math]::Max(445,$w-350)
+ $grid.Width=$usable
+ $grid.Height=[math]::Max(185,$h-334-91)
+ $detail.Top=$grid.Bottom+9;$detail.Width=$usable
+ $note.Top=$h-31;$note.Width=$usable
+}
+$form.Add_Resize({Update-CompactLayout})
+Update-CompactLayout
 
 $base=Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Laptop Health Checker Reports'
 New-Item -ItemType Directory -Force -Path $base | Out-Null
