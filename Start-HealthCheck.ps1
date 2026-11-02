@@ -28,7 +28,7 @@ try {
             '-ExecutionPolicy', 'Bypass'
             '-File', "`"$dashboard`""
         ) `
-        -WindowStyle Hidden `
+        -WindowStyle Minimized `
         -PassThru
 
     if (-not $process) {
