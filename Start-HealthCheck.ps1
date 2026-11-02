@@ -11,7 +11,7 @@ try {
 
     foreach ($file in @('Dashboard.ps1', 'Worker.ps1')) {
         $stamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-        $url = "$base/$file?v=$stamp"
+        $url = "${base}/${file}?v=$stamp"
         $destination = Join-Path $folder $file
 
         Invoke-WebRequest -Uri $url -OutFile $destination
