@@ -28,6 +28,7 @@ try {
             '-ExecutionPolicy', 'Bypass'
             '-File', "`"$dashboard`""
         ) `
+        -WindowStyle Hidden `
         -PassThru
 
     if (-not $process) {
