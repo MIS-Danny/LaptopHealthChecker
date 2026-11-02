@@ -15,7 +15,8 @@ $amber=[Drawing.Color]::FromArgb(251,191,36)
 $red=[Drawing.Color]::FromArgb(248,113,113)
 
 $form=New-Object Windows.Forms.Form
-$form.Text='Laptop Health Checker | v2.2 Buyer Edition'
+$form.Text='Laptop Health Checker'
+$form.ShowIcon=$false
 $form.Size=New-Object Drawing.Size(950,670)
 $form.MinimumSize=New-Object Drawing.Size(850,670)
 $form.StartPosition='CenterScreen'
@@ -57,8 +58,6 @@ function New-Button {
 # Two-column buyer dashboard: fixed summary rail on left, scrolling diagnostics on right.
 $brand=New-Label 'LAPTOP HEALTH CHECKER' 22 13 630 31 17 $true
 $subtitle=New-Label 'PORTABLE HARDWARE INSPECTION  /  WINDOWS 10 & 11' 23 45 650 18 8 $false $muted
-$version=New-Label 'V2.2  |  BUYER EDITION' 675 23 235 22 8 $true $muted
-$version.TextAlign='MiddleRight'
 
 $scoreCard=New-Card 22 83 276 100
 $scoreTitle=New-Label 'HEALTH SCORE' 14 10 240 20 9 $true $muted $scoreCard
@@ -132,7 +131,7 @@ $grid.Columns[3].FillWeight=200
 $form.Controls.Add($grid)
 
 $detail=New-Label 'Select a component to view complete diagnostic details.' 319 541 590 45 9 $false $muted
-$note=New-Label 'Screening estimates only. Verify screen, keyboard, hinges, ports, charging and real battery runtime.' 22 600 890 28 8 $false $muted
+$note=New-Label 'Developed by Danny Perez  |  DevCore Solution  |  v2.2' 22 600 890 28 8 $false $muted
 
 # Preserve the left summary rail; give additional width and height to results.
 function Update-CompactLayout {
@@ -142,7 +141,6 @@ function Update-CompactLayout {
  $rail=276
  $right=319
  $rightWidth=[math]::Max(480,$w-$right-22)
- $version.Left=[math]::Max(650,$w-257)
  $grid.Left=$right
  $grid.Width=$rightWidth
  $grid.Height=[math]::Max(275,$h-140-104)
