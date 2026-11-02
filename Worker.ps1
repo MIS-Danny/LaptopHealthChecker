@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory=$true)][string]$OutDir,
     [ValidateSet('Quick','Deep')][string]$Mode='Quick'
 )
@@ -124,21 +124,64 @@ try {
         $sys=Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
         Add-Result 'Windows / System' 'PASS' 90 "$($sys.Manufacturer) $($sys.Model); $($os.Caption); last boot $($os.LastBootUpTime)" 5
     }catch{Add-Result 'Windows / System' 'UNKNOWN' -1 $_.Exception.Message 5}
+    # Supplemental automatic checks are informational and do not inflate the weighted health score.
+    Stage 82 'Checking additional system diagnostics...'
+    try {
+        $volumes=@(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' -ErrorAction Stop)
+        if($volumes.Count){
+            $low=@($volumes | Where-Object {$_.Size -gt 0 -and ($_.FreeSpace / $_.Size) -lt 0.10})
+            $detail=($volumes | ForEach-Object {if($_.Size -gt 0){"$($_.DeviceID) $([math]::Round($_.FreeSpace/1GB,1)) GB free of $([math]::Round($_.Size/1GB,1)) GB"}}) -join '; '
+            Add-Result 'Storage free space' $(if($low.Count){'WARN'}else{'PASS'}) $(if($low.Count){60}else{95}) $detail 0
+        }else{Add-Result 'Storage free space' 'UNKNOWN' -1 'No fixed-volume capacity data.' 0}
+    }catch{Add-Result 'Storage free space' 'UNKNOWN' -1 $_.Exception.Message 0}
+    try {
+        $modules=@(Get-CimInstance Win32_PhysicalMemory -ErrorAction Stop)
+        if($modules.Count){
+            $detail=($modules | ForEach-Object {"$([math]::Round($_.Capacity/1GB,1)) GB @ $($_.Speed) MHz ($($_.Manufacturer))"}) -join '; '
+            Add-Result 'RAM configuration' 'PASS' 90 "$($modules.Count) module(s); $detail. Configuration only, not memory integrity." 0
+        }else{Add-Result 'RAM configuration' 'UNKNOWN' -1 'No memory module data.' 0}
+    }catch{Add-Result 'RAM configuration' 'UNKNOWN' -1 $_.Exception.Message 0}
+    try {
+        $bad=@(Get-CimInstance Win32_PnPEntity -Filter 'ConfigManagerErrorCode <> 0' -ErrorAction Stop | Where-Object {$_.ConfigManagerErrorCode -notin @(0,22,24,45)})
+        $detail=if($bad.Count){($bad | Select-Object -First 8 | ForEach-Object {"$($_.Name) (code $($_.ConfigManagerErrorCode))"}) -join '; '}else{'No active device error codes reported. Disabled/disconnected devices excluded.'}
+        Add-Result 'Device Manager errors' $(if($bad.Count){'WARN'}else{'PASS'}) $(if($bad.Count){55}else{95}) $detail 0
+    }catch{Add-Result 'Device Manager errors' 'UNKNOWN' -1 $_.Exception.Message 0}
+    try {
+        $bios=Get-CimInstance Win32_BIOS -ErrorAction Stop | Select-Object -First 1
+        Add-Result 'BIOS / firmware info' 'PASS' 90 "Version $($bios.SMBIOSBIOSVersion); release $($bios.ReleaseDate). Informational only; not a firmware security audit." 0
+    }catch{Add-Result 'BIOS / firmware info' 'UNKNOWN' -1 $_.Exception.Message 0}
+    try {
+        $os=Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+        $uptime=(Get-Date)-$os.LastBootUpTime
+        Add-Result 'System uptime' 'PASS' 90 "Uptime $([math]::Round($uptime.TotalHours,1)) hours; last boot $($os.LastBootUpTime). Informational only." 0
+    }catch{Add-Result 'System uptime' 'UNKNOWN' -1 $_.Exception.Message 0}
+    try {
+        $pending=(Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired')
+        Add-Result 'Pending Windows reboot' $(if($pending){'WARN'}else{'PASS'}) $(if($pending){60}else{95}) $(if($pending){'Windows indicates a pending reboot. Not necessarily a hardware problem.'}else{'No reboot pending in checked Windows Update/servicing registry locations.'}) 0
+    }catch{Add-Result 'Pending Windows reboot' 'UNKNOWN' -1 $_.Exception.Message 0}
+    try {
+        $since=(Get-Date).AddDays(-7)
+        $events=@(Get-WinEvent -FilterHashtable @{LogName='System';Level=1;StartTime=$since} -MaxEvents 10 -ErrorAction Stop)
+        $detail=if($events.Count){($events | Select-Object -First 5 | ForEach-Object {"$($_.TimeCreated.ToString('yyyy-MM-dd')) ID $($_.Id) $($_.ProviderName)"}) -join '; '}else{'No critical System events found in last 7 days.'}
+        Add-Result 'Recent critical events' $(if($events.Count){'WARN'}else{'PASS'}) $(if($events.Count){60}else{95}) $detail 0
+    }catch{Add-Result 'Recent critical events' 'UNKNOWN' -1 'Event log unavailable or access denied.' 0}
     Stage 90 'Generating report...'
     $known=@($results|Where-Object {$_.Score -ge 0});$sum=0;$weights=0
     foreach($r in $known){$sum+=$r.Score*$r.Weight;$weights+=$r.Weight}
     $overall=if($weights){[math]::Round($sum/$weights)}else{-1}
     $totalWeights=($results|Measure-Object -Property Weight -Sum).Sum
     $coverage=if($totalWeights){[math]::Round(100*$weights/$totalWeights)}else{0}
+    # Buying recommendation: heuristic screening, never a guarantee of safety.
     $critical=@($results|Where-Object {$_.Status -eq 'FAIL' -and $_.Name -in @('Battery','SSD / HDD','RAM','CPU')})
     $batteryUnknown=@($results|Where-Object {$_.Name -eq 'Battery' -and $_.Status -eq 'UNKNOWN'}).Count -gt 0
-    $verdict=if($critical.Count){'AVOID / INVESTIGATE'}elseif($coverage -lt 70){'INSUFFICIENT DATA'}elseif($batteryUnknown){'INSPECT FURTHER - BATTERY UNVERIFIED'}elseif(@($results|Where-Object {$_.Status -eq 'WARN'}).Count){'INSPECT FURTHER'}elseif($overall -ge 80){'PROMISING - VERIFY MANUALLY'}else{'INSPECT FURTHER'}
+    $warnings=@($results|Where-Object {$_.Status -eq 'WARN'})
+    $verdict=if($critical.Count){'DO NOT BUY YET - CRITICAL FAILURE'}elseif($coverage -lt 90){'INCOMPLETE TESTING'}elseif($batteryUnknown){'CAUTION - BATTERY UNVERIFIED'}elseif($warnings.Count){'CAUTION - CHECK WARNINGS'}elseif($overall -ge 85){'PROMISING - PHYSICAL CHECK REQUIRED'}elseif($overall -ge 70){'CAUTION - INSPECT CAREFULLY'}else{'HIGH RISK - NOT RECOMMENDED'}
     $stamp=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $report=[pscustomobject]@{Mode=$Mode;Date=$stamp;Overall=$overall;Coverage=$coverage;Verdict=$verdict;Results=@($results)}
     $report|ConvertTo-Json -Depth 6|Set-Content (Join-Path $OutDir 'report.json') -Encoding UTF8
     $rows=($results|ForEach-Object {"<tr><td>$(Html $_.Name)</td><td class='$($_.Status)'>$(Html $_.Status)</td><td>$(if($_.Score -lt 0){'N/A'}else{"$($_.Score)/100"})</td><td>$(Html $_.Detail)</td></tr>"}) -join "`n"
     $html=@"
-<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Laptop Health Inspection</title><style>body{font:15px Segoe UI,Arial;background:#0b1220;color:#e2e8f0;margin:35px auto;max-width:1050px;padding:0 20px}header{background:#172337;border-radius:16px;padding:28px}h1{margin:0 0 8px}.score{font-size:48px;font-weight:800}table{border-collapse:collapse;width:100%;background:#172337;margin-top:22px}th,td{text-align:left;border-bottom:1px solid #334155;padding:13px;vertical-align:top}th{background:#24334b}.PASS{color:#4ade80;font-weight:bold}.WARN{color:#fbbf24;font-weight:bold}.FAIL{color:#fb7185;font-weight:bold}.UNKNOWN{color:#94a3b8;font-weight:bold}.note{background:#24334b;padding:18px;border-radius:12px;margin-top:22px;line-height:1.6}</style></head><body><header><h1>Laptop Health Checker</h1><div>$(Html $stamp) | $(Html $Mode) inspection</div><div class="score">$(if($overall -lt 0){'N/A'}else{"$overall/100"})</div><strong>$(Html $verdict)</strong><div>Diagnostic coverage: $coverage% of weighted categories</div></header><table><thead><tr><th>Component</th><th>Status</th><th>Inspection score</th><th>Details</th></tr></thead><tbody>$rows</tbody></table><div class="note"><strong>Important:</strong> Scores are heuristic inspection ratings, not measured remaining lifespan or probability of reliability. Battery health is capacity retention, not runtime. SMART and firmware may hide disk defects. RAM allocation is not a full memory test. CPU/GPU tests are not long thermal or graphics stress tests. Manually inspect screen, keyboard, hinges, speakers, ports, webcam, charging, battery runtime and seller ownership before buying.</div></body></html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Laptop Health Inspection</title><style>body{font:15px Segoe UI,Arial;background:#0b1220;color:#e2e8f0;margin:35px auto;max-width:1050px;padding:0 20px}header{background:#172337;border-radius:16px;padding:28px}h1{margin:0 0 8px}.score{font-size:48px;font-weight:800}table{border-collapse:collapse;width:100%;background:#172337;margin-top:22px}th,td{text-align:left;border-bottom:1px solid #334155;padding:13px;vertical-align:top}th{background:#24334b}.PASS{color:#4ade80;font-weight:bold}.WARN{color:#fbbf24;font-weight:bold}.FAIL{color:#fb7185;font-weight:bold}.UNKNOWN{color:#94a3b8;font-weight:bold}.note{background:#24334b;padding:18px;border-radius:12px;margin-top:22px;line-height:1.6}</style></head><body><header><h1>Laptop Health Checker</h1><div>$(Html $stamp) | $(Html $Mode) inspection</div><div class="score">$(if($overall -lt 0){'N/A'}else{"$overall/100"})</div><strong>Buying recommendation: $(Html $verdict)</strong><div>Diagnostic coverage: $coverage% of weighted categories</div></header><table><thead><tr><th>Component</th><th>Status</th><th>Inspection score</th><th>Details</th></tr></thead><tbody>$rows</tbody></table><div class="note"><strong>Buying guide:</strong> 85-100 promising; 70-84 caution; below 70 high risk. Coverage below 90%, battery unknown, warnings or critical failures override the score. Physical checks are required before buying.<br><br><strong>Important:</strong> Supplemental checks (weight 0) are informational and do not affect the health score or diagnostic coverage. Windows events, driver warnings and storage free space may require follow-up. Scores are heuristic inspection ratings, not measured remaining lifespan or probability of reliability. Battery health is capacity retention, not runtime. SMART and firmware may hide disk defects. RAM allocation is not a full memory test. CPU/GPU tests are not long thermal or graphics stress tests. Manually inspect screen, keyboard, hinges, speakers, ports, webcam, charging, battery runtime and seller ownership before buying.</div></body></html>
 "@
     $html|Set-Content (Join-Path $OutDir 'report.html') -Encoding UTF8
     Stage 100 'Completed'
